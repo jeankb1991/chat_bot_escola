@@ -23,8 +23,55 @@ app.post('/webhook', webhookPost);
 
 
 // ------------------------------------------------------------------------
-// API para facilitar o teste local sem precisar do WhatsApp real (MOCK)
+// ROTA PARA FACILITAR O PAREAMENTO DO WHATSAPP (QR CODE NA WEB)
 // ------------------------------------------------------------------------
+app.get('/qr', (req, res) => {
+    const whatsappService = require('./src/services/whatsappService');
+    
+    if (whatsappService.isAuthenticated) {
+        return res.send('<h1>✅ O WhatsApp já está conectado!</h1><p>Você já pode fechar esta página.</p>');
+    }
+
+    if (!whatsappService.lastQr) {
+        return res.send('<h1>⏳ Aguardando QR Code...</h1><p>O bot está iniciando. Atualize a página em alguns instantes.</p><script>setTimeout(() => location.reload(), 3000)</script>');
+    }
+
+    // Gerar a URL da imagem do QR Code usando uma API pública (mais simples e rápido)
+    const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(whatsappService.lastQr)}`;
+
+    res.send(`
+        <html>
+        <head>
+            <title>Conectar WhatsApp - Chatbot Escolar</title>
+            <style>
+                body { font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; background: #f0f2f5; margin: 0; }
+                .card { background: white; padding: 2rem; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); text-align: center; }
+                h1 { color: #075e54; margin-bottom: 0.5rem; }
+                p { color: #666; margin-bottom: 1.5rem; }
+                img { border: 10px solid white; border-radius: 8px; background: white; }
+                .status { margin-top: 1rem; font-size: 0.9rem; color: #888; }
+            </style>
+            <script>
+                // Atualiza a página automaticamente para detectar quando o bot conectar
+                setInterval(() => {
+                    fetch(window.location.href).then(r => r.text()).then(html => {
+                        if (html.includes('✅')) window.location.reload();
+                    });
+                }, 5000);
+            </script>
+        </head>
+        <body>
+            <div class="card">
+                <h1>Vincular WhatsApp</h1>
+                <p>Abra o WhatsApp no seu celular e escaneie o código abaixo:</p>
+                <img src="${qrImageUrl}" alt="WhatsApp QR Code" />
+                <div class="status">Esta página atualizará sozinha após a conexão.</div>
+            </div>
+        </body>
+        </html>
+    `);
+});
+
 app.get('/', (req, res) => {
     res.send(`
         <html>
