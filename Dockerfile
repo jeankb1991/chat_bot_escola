@@ -1,5 +1,5 @@
-# Imagem base leve do Node.js 20
-FROM node:20-slim
+# Imagem base leve do Node.js 20 (Atualizada para suportar o banco SQLite mais recente)
+FROM node:20-bookworm-slim
 
 # Instala os pacotes do Linux essenciais para o bot conseguir rodar o Chrome invisível nas nuvens
 RUN apt-get update \
