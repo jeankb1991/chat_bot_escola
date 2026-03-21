@@ -12,8 +12,17 @@ class WhatsAppService {
             // Mantemos a sessão antiga e confiável
             authStrategy: new LocalAuth({ clientId: "bot-escola" }), 
             puppeteer: {
-                args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-gpu', '--disable-dev-shm-usage'],
-                headless: true // ⚠️ FUNDAMENTAL PARA O RENDER.COM! Não pode ter tela gráfica.
+                args: [
+                    '--no-sandbox', 
+                    '--disable-setuid-sandbox', 
+                    '--disable-dev-shm-usage',
+                    '--disable-accelerated-2d-canvas', 
+                    '--no-first-run', 
+                    '--no-zygote', 
+                    '--single-process', // Crucial para economizar RAM em ambientes limitados
+                    '--disable-gpu'
+                ],
+                headless: true 
             }
         });
 
