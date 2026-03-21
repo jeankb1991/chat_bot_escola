@@ -68,39 +68,35 @@ app.listen(PORT, () => {
 });
 
 // =========================================================================
-// INTEGRAÇÃO: WHATSAPP WEB JS (Múltiplos Bots Simultâneos)
+// INTEGRAÇÃO: WHATSAPP WEB JS (Modo Sem Token via QR Code)
 // =========================================================================
-const WhatsAppService = require('./src/services/whatsappService');
+const whatsappService = require('./src/services/whatsappService');
 const { handleIncomingMessage } = require('./src/services/botLogic');
 
-// Crie quantas contas de WhatsApp desejar aqui:
-const botPrincipal = new WhatsAppService('bot-escola');       // O número antigo que funciona
-const botSecundario = new WhatsAppService('bot-novo-numero'); // O seu novo aparelho
+// Ouça qualquer pessoa que chame você no WhatsApp vinculado!
+whatsappService.client.on('message', async (msg) => {
+    // Ignora mensagens de Grupos, Comunidades e de Status. Só responde contatos normais (@c.us)
+    if (!msg.from || !msg.from.endsWith('@c.us')) {
+        return;
+    }
 
-// Função para iniciar e configurar cada bot individualmente
-function ligarBot(botInstance) {
-    botInstance.client.on('message', async (msg) => {
-        // Ignora mensagens de Grupos, Comunidades e Status
-        if (!msg.from || !msg.from.endsWith('@c.us')) return;
-
-        if (!msg.fromMe && msg.body) {
-            const phone = msg.from.split('@')[0]; 
-            console.log(`\n\x1b[34m[${botInstance.clientId} - USUÁRIO ${phone}]:\x1b[0m ${msg.body}`);
-            
-            try {
-                // Passamos a instância do bot exato que recebeu a mensagem, assim o botLogic responde pelo número correto
-                await handleIncomingMessage(phone, msg.body, botInstance);
-            } catch (error) {
-                console.error(`Erro na lógica do chatbot ${botInstance.clientId}:`, error);
-            }
+    // Escuta tudo o que as pessoas te enviam
+    // fromMe = false (para assegurar que o bot não responderá a si mesmo)
+    if (!msg.fromMe && msg.body) {
+        
+        // Obter número limpo sem o sulfixo @c.us (ex: 5511999999999@c.us -> 5511999999999)
+        const phone = msg.from.split('@')[0]; 
+        
+        console.log(`\n\x1b[34m[WHATSAPP REAL - USUÁRIO ${phone}]:\x1b[0m ${msg.body}`);
+        
+        // Repassa exatamente a mesma inteligência construída antes para o modo celular gratuito!
+        try {
+            await handleIncomingMessage(phone, msg.body);
+        } catch (error) {
+            console.error('Erro na lógica do chatbot:', error);
         }
-    });
+    }
+});
 
-    // Inicializa a sessão web
-    botInstance.initialize();
-}
-
-// Ligar os bots
-ligarBot(botPrincipal);
-ligarBot(botSecundario);
-// Para adicionar um 3º número no futuro, use: const bot3 = new WhatsAppService('bot-3'); ligarBot(bot3);
+// Inicializa a sessão web invisível!
+whatsappService.initialize();
