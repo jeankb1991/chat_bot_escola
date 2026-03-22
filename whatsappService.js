@@ -32,9 +32,17 @@ class WhatsAppService {
         this.client.on('qr', (qr) => {
             this.lastQr = qr; // Salva o QR atual
             console.log('\n========================================================================');
-            console.log('\x1b[33m%s\x1b[0m', '📱 ESCANEIE O QR CODE ABAIXO COM O SEU CELULAR NO APLICATIVO WHATSAPP:');
+            console.log('\x1b[33m%s\x1b[0m', '📱 NOVO QR CODE GERADO E DISPONÍVEL NA WEB (/) E NO TERMINAL!');
             console.log('========================================================================\n');
             qrcode.generate(qr, { small: true });
+        });
+
+        this.client.on('authenticated', () => {
+            console.log('✅ Autenticado com sucesso! Carregando sessão...');
+        });
+
+        this.client.on('loading_screen', (percent, message) => {
+            console.log(`⏳ Carregando WhatsApp: ${percent}% - ${message}`);
         });
 
         this.client.on('ready', () => {
@@ -43,8 +51,13 @@ class WhatsAppService {
              console.log('\n\x1b[32m%s\x1b[0m', '✅ SUCESSO! SEU BOT FOI VINCULADO AO SEU NÚMERO E ESTÁ NO AR!');
         });
 
-        this.client.on('auth_failure', () => {
-             console.error('\n\x1b[31m%s\x1b[0m', '❌ Autenticação falhou! Reinicie o servidor.');
+        this.client.on('auth_failure', (msg) => {
+             console.error('\n\x1b[31m%s\x1b[0m', '❌ Autenticação falhou! Erro:', msg);
+        });
+
+        this.client.on('disconnected', (reason) => {
+            console.log('🔌 WhatsApp desconectado:', reason);
+            this.isAuthenticated = false;
         });
     }
 
