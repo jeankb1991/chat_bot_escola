@@ -319,43 +319,17 @@ app.get('/', async (req, res) => {
     `);
 });
 
-app.listen(PORT, () => {
-    console.log(`\n========================================================`);
-    console.log(`🚀 Servidor do Webhook rodando na porta ${PORT}`);
-    console.log(`🔗 Interface Local p/ testes Web: http://localhost:${PORT}`);
-    console.log(`========================================================\n`);
-});
-
 // =========================================================================
-// INTEGRAÇÃO: WHATSAPP WEB JS (Modo Sem Token via QR Code)
+// INTEGRAÇÃO: WHATSAPP (BAILEYS - MODO ULTRA-LEVE)
 // =========================================================================
 const whatsappService = require('./src/services/whatsappService');
-const { handleIncomingMessage } = require('./src/services/botLogic');
 
-// Ouça qualquer pessoa que chame você no WhatsApp vinculado!
-whatsappService.client.on('message', async (msg) => {
-    // Ignora mensagens de Grupos, Comunidades e de Status. Só responde contatos normais (@c.us)
-    if (!msg.from || !msg.from.endsWith('@c.us')) {
-        return;
-    }
-
-    // Escuta tudo o que as pessoas te enviam
-    // fromMe = false (para assegurar que o bot não responderá a si mesmo)
-    if (!msg.fromMe && msg.body) {
-
-        // Obter número limpo sem o sulfixo @c.us (ex: 5511999999999@c.us -> 5511999999999)
-        const phone = msg.from.split('@')[0];
-
-        console.log(`\n\x1b[34m[WHATSAPP REAL - USUÁRIO ${phone}]:\x1b[0m ${msg.body}`);
-
-        // Repassa exatamente a mesma inteligência construída antes para o modo celular gratuito!
-        try {
-            await handleIncomingMessage(phone, msg.body);
-        } catch (error) {
-            console.error('Erro na lógica do chatbot:', error);
-        }
-    }
-});
-
-// Inicializa a sessão web invisível!
+// Inicializa a conexão via Sockets (sem Chrome/Puppeteer)
 whatsappService.initialize();
+
+app.listen(PORT, () => {
+    console.log(`\n========================================================`);
+    console.log(`🚀 Servidor do Dashboard rodando na porta ${PORT}`);
+    console.log(`🔗 Interface Local: http://localhost:${PORT}`);
+    console.log(`========================================================\n`);
+});

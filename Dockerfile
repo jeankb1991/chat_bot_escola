@@ -1,18 +1,10 @@
 # Imagem base leve do Node.js 20 (Atualizada para suportar o banco SQLite mais recente)
 FROM node:20-bookworm-slim
 
-# Instala as dependências e o Google Chrome Stable oficial
+# Instala apenas o essencial (Python e ferramentas de Build para o SQLite)
 RUN apt-get update && apt-get install -y \
-    wget gnupg ca-certificates python3 make g++ \
-    && wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add - \
-    && sh -c 'echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google.list' \
-    && apt-get update \
-    && apt-get install -y google-chrome-stable \
+    python3 make g++ \
     && rm -rf /var/lib/apt/lists/*
-
-# Evita que o Puppeteer baixe o Chromium próprio (economiza RAM e Espaço)
-ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
-    PUPPETEER_EXECUTABLE_PATH=/usr/bin/google-chrome-stable
 
 # Configura a pasta de trabalho
 WORKDIR /usr/src/app

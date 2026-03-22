@@ -1,113 +1,110 @@
-const { Client, LocalAuth } = require('whatsapp-web.js');
-const qrcode = require('qrcode-terminal');
-const { saveHistory } = require('../db/database');
-
-const simulateTyping = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+const { 
+    default: makeWASocket, 
+    useMultiFileAuthState, 
+    DisconnectReason, 
+    fetchLatestBaileysVersion 
+} = require('@whiskeysockets/baileys');
+const pino = require('pino');
+const QRCode = require('qrcode');
+const path = require('path');
+const fs = require('fs');
 
 class WhatsAppService {
     constructor() {
-        console.log('\n⏳ Inicializando o robô do WhatsApp Web (pode demorar alguns segundos)...\n');
+        this.client = null;
+        this.isAuthenticated = false;
+        this.lastQr = null;
+        this.authPath = path.resolve(__dirname, '../../.wwebjs_auth/session-baileys');
         
-        // Configuração dinâmica do caminho do Chrome (Windows vs Linux/Render)
-        const chromePath = process.platform === 'win32' 
-            ? undefined // No Windows, o Puppeteer encontra o Chrome automaticamente ou usa o baixado
-            : '/usr/bin/google-chrome-stable'; // No Render (Linux), usamos o Chrome que instalamos no Dockerfile
+        // Garantir que a pasta de autenticação exista
+        if (!fs.existsSync(path.dirname(this.authPath))) {
+            fs.mkdirSync(path.dirname(this.authPath), { recursive: true });
+        }
+    }
 
-        this.client = new Client({
-            authStrategy: new LocalAuth({ clientId: "bot-escola" }), 
-            puppeteer: {
-                executablePath: chromePath,
-                args: [
-                    '--no-sandbox', 
-                    '--disable-setuid-sandbox', 
-                    '--disable-dev-shm-usage',
-                    '--disable-accelerated-2d-canvas', 
-                    '--no-first-run', 
-                    '--no-zygote', 
-                    '--single-process', 
-                    '--disable-gpu',
-                    '--disable-extensions', // Economiza muita RAM
-                    '--disable-software-rasterizer'
-                ],
-                headless: true 
+    async initialize() {
+        console.log('\n⚡ Inicializando WhatsApp via Baileys (Modo Ultra-Leve)...\n');
+        
+        const { state, saveCreds } = await useMultiFileAuthState(this.authPath);
+        const { version } = await fetchLatestBaileysVersion();
+
+        this.client = makeWASocket({
+            version,
+            printQRInTerminal: true,
+            auth: state,
+            logger: pino({ level: 'silent' }),
+            browser: ['Chatbot Escolar', 'Chrome', '1.0.0']
+        });
+
+        // Ouvir atualizações de conexão
+        this.client.ev.on('connection.update', async (update) => {
+            const { connection, lastDisconnect, qr } = update;
+
+            if (qr) {
+                // Converter o QR string para uma URL de imagem Base64 para o dashboard
+                this.lastQr = qr;
+                console.log('📱 Novo QR Code gerado!');
+            }
+
+            if (connection === 'close') {
+                const shouldReconnect = lastDisconnect.error?.output?.statusCode !== DisconnectReason.loggedOut;
+                console.log('🔌 Conexão fechada devido a:', lastDisconnect.error, ', tentando reconectar:', shouldReconnect);
+                this.isAuthenticated = false;
+                if (shouldReconnect) {
+                    this.initialize();
+                }
+            } else if (connection === 'open') {
+                console.log('\n\x1b[32m%s\x1b[0m', '✅ SUCESSO! SEU BOT ESTÁ ONLINE VIA BAILEYS!');
+                this.isAuthenticated = true;
+                this.lastQr = null;
             }
         });
 
-        this.lastQr = null; // Armazena o código para exibir na página web
-        this.isAuthenticated = false;
+        // Salvar credenciais sempre que houver mudança
+        this.client.ev.on('creds.update', saveCreds);
 
-        this.client.on('qr', (qr) => {
-            this.lastQr = qr; // Salva o QR atual
-            console.log('\n========================================================================');
-            console.log('\x1b[33m%s\x1b[0m', '📱 NOVO QR CODE GERADO E DISPONÍVEL NA WEB (/) E NO TERMINAL!');
-            console.log('========================================================================\n');
-            qrcode.generate(qr, { small: true });
+        // Ouvir mensagens recebidas
+        this.client.ev.on('messages.upsert', async (m) => {
+            if (m.type === 'notify') {
+                for (const msg of m.messages) {
+                    if (!msg.key.fromMe && msg.message) {
+                        const phone = msg.key.remoteJid.split('@')[0];
+                        const body = msg.message.conversation || 
+                                     msg.message.extendedTextMessage?.text || 
+                                     '';
+                        
+                        if (body) {
+                            console.log(`\n\x1b[34m[BAILEYS - USUÁRIO ${phone}]:\x1b[0m ${body}`);
+                            // Importação dinâmica para evitar dependência circular
+                            const { handleIncomingMessage } = require('./botLogic');
+                            try {
+                                await handleIncomingMessage(phone, body);
+                            } catch (error) {
+                                console.error('Erro ao processar mensagem Baileys:', error);
+                            }
+                        }
+                    }
+                }
+            }
         });
-
-        this.client.on('authenticated', () => {
-            console.log('✅ Autenticado com sucesso! Carregando sessão...');
-        });
-
-        this.client.on('loading_screen', (percent, message) => {
-            console.log(`⏳ Carregando WhatsApp: ${percent}% - ${message}`);
-        });
-
-        this.client.on('ready', () => {
-             this.isAuthenticated = true;
-             this.lastQr = null; 
-             console.log('\n\x1b[32m%s\x1b[0m', '✅ SUCESSO! SEU BOT FOI VINCULADO AO SEU NÚMERO E ESTÁ NO AR!');
-        });
-
-        this.client.on('auth_failure', (msg) => {
-             console.error('\n\x1b[31m%s\x1b[0m', '❌ Autenticação falhou! Erro:', msg);
-        });
-
-        this.client.on('disconnected', (reason) => {
-            console.log('🔌 WhatsApp desconectado:', reason);
-            this.isAuthenticated = false;
-        });
-    }
-
-    initialize() {
-        this.client.initialize();
     }
 
     async sendMessage(to, body) {
-        if(!to) return;
-        
-        await saveHistory(to, 'bot', body);
-        const delay = Math.min(Math.max(body.length * 20, 1000), 3000); 
-        console.log(`\x1b[32m[BOT -> ${to}]:\x1b[0m\n${body}\n`);
-
-        const chatId = to.includes('@') ? to : `${to}@c.us`;
+        if (!this.client || !this.isAuthenticated) {
+            console.error('❌ Não é possível enviar mensagem: Bot não conectado.');
+            return;
+        }
 
         try {
-            // VERIFICAÇÃO INFALÍVEL LID WhatsApp
-            const numberDetails = await this.client.getNumberId(chatId);
-            if (!numberDetails) {
-                console.warn(`O número ${to} não está registrado ou não validou.`);
-                return false; 
-            }
-
-            const validId = numberDetails._serialized;
-
-            try {
-                const chatObj = await this.client.getChatById(validId);
-                await chatObj.sendStateTyping();
-                await simulateTyping(delay);
-                await chatObj.clearState();
-            } catch (err) {
-                await simulateTyping(500);
-            }
-
-            await this.client.sendMessage(validId, body);
-            return true;
-
+            // Formatar número para o padrão JID do WhatsApp
+            const jid = to.includes('@s.whatsapp.net') ? to : `${to}@s.whatsapp.net`;
+            await this.client.sendMessage(jid, { text: body });
+            console.log(`\x1b[36m[BOT -> ${to}]:\x1b[0m ${body}`);
         } catch (error) {
-            console.error(`⚠️ Erro fatal no envio para o número ${to}:`, error.message);
-            return false;
+            console.error('Erro ao enviar mensagem via Baileys:', error);
         }
     }
 }
 
+// Exportamos uma única instância (Singleton)
 module.exports = new WhatsAppService();
