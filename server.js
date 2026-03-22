@@ -28,7 +28,7 @@ app.post('/webhook', webhookPost);
 // ------------------------------------------------------------------------
 app.get('/qr', (req, res) => {
     const whatsappService = require('./src/services/whatsappService');
-    
+
     if (whatsappService.isAuthenticated) {
         return res.send(`
             <html>
@@ -143,7 +143,7 @@ app.get('/qr', (req, res) => {
 app.get('/', async (req, res) => {
     const whatsappService = require('./src/services/whatsappService');
     let stats = { totalMessages: 0, totalLeads: 0, totalSessions: 0 };
-    
+
     // Proteção: Caso a função não exista ou falhe (ex: deploy incompleto), o site não cai.
     if (typeof getStats === 'function') {
         try {
@@ -292,10 +292,10 @@ app.get('/', async (req, res) => {
                         <i data-lucide="smartphone" size="48" style="color: var(--text-dim)"></i>
                         <h3>Conectividade</h3>
                         <p style="color: var(--text-dim); font-size: 0.875rem;">Vincule seu WhatsApp para entrar no ar.</p>
-                        ${isBotConnected 
-                            ? '<span style="color: var(--primary); font-weight: 600;"><i data-lucide="check-circle" style="vertical-align: middle;"></i> Online</span>'
-                            : '<a href="/qr" class="qr-link">Vincular Celular</a>'
-                        }
+                        ${isBotConnected
+            ? '<span style="color: var(--primary); font-weight: 600;"><i data-lucide="check-circle" style="vertical-align: middle;"></i> Online</span>'
+            : '<a href="/qr" class="qr-link">Vincular Celular</a>'
+        }
                     </section>
                 </div>
             </div>
@@ -342,12 +342,12 @@ whatsappService.client.on('message', async (msg) => {
     // Escuta tudo o que as pessoas te enviam
     // fromMe = false (para assegurar que o bot não responderá a si mesmo)
     if (!msg.fromMe && msg.body) {
-        
+
         // Obter número limpo sem o sulfixo @c.us (ex: 5511999999999@c.us -> 5511999999999)
-        const phone = msg.from.split('@')[0]; 
-        
+        const phone = msg.from.split('@')[0];
+
         console.log(`\n\x1b[34m[WHATSAPP REAL - USUÁRIO ${phone}]:\x1b[0m ${msg.body}`);
-        
+
         // Repassa exatamente a mesma inteligência construída antes para o modo celular gratuito!
         try {
             await handleIncomingMessage(phone, msg.body);
