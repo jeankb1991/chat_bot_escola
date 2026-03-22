@@ -142,7 +142,17 @@ app.get('/qr', (req, res) => {
 
 app.get('/', async (req, res) => {
     const whatsappService = require('./src/services/whatsappService');
-    const stats = await getStats();
+    let stats = { totalMessages: 0, totalLeads: 0, totalSessions: 0 };
+    
+    // Proteção: Caso a função não exista ou falhe (ex: deploy incompleto), o site não cai.
+    if (typeof getStats === 'function') {
+        try {
+            const result = await getStats();
+            if (result) stats = result;
+        } catch (error) {
+            console.error('Erro ao carregar estatísticas:', error.message);
+        }
+    }
     const isBotConnected = whatsappService.isAuthenticated;
 
     res.send(`
