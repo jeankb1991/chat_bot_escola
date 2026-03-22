@@ -8,10 +8,15 @@ class WhatsAppService {
     constructor() {
         console.log('\n⏳ Inicializando o robô do WhatsApp Web (pode demorar alguns segundos)...\n');
         
+        // Configuração dinâmica do caminho do Chrome (Windows vs Linux/Render)
+        const chromePath = process.platform === 'win32' 
+            ? undefined // No Windows, o Puppeteer encontra o Chrome automaticamente ou usa o baixado
+            : '/usr/bin/google-chrome-stable'; // No Render (Linux), usamos o Chrome que instalamos no Dockerfile
+
         this.client = new Client({
-            // Mantemos a sessão antiga e confiável
             authStrategy: new LocalAuth({ clientId: "bot-escola" }), 
             puppeteer: {
+                executablePath: chromePath,
                 args: [
                     '--no-sandbox', 
                     '--disable-setuid-sandbox', 
@@ -19,8 +24,10 @@ class WhatsAppService {
                     '--disable-accelerated-2d-canvas', 
                     '--no-first-run', 
                     '--no-zygote', 
-                    '--single-process', // Crucial para economizar RAM em ambientes limitados
-                    '--disable-gpu'
+                    '--single-process', 
+                    '--disable-gpu',
+                    '--disable-extensions', // Economiza muita RAM
+                    '--disable-software-rasterizer'
                 ],
                 headless: true 
             }
